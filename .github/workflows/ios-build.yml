@@ -7,6 +7,59 @@ on:
 
 jobs:
   build:
+    runs-on: macos-15-intel
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Unpack project
+        run: unzip -o OmoFun-source.zip -d .
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        working-directory: ios
+        run: xcodegen generate
+
+      - name: Build app (unsigned)
+        working-directory: ios
+        run: |
+          xcodebuild \
+            -project OmoFun.xcodeproj \
+            -scheme OmoFun \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Package IPA
+        run: |
+          mkdir -p output/Payload
+          cp -R ios/build/Build/Products/Release-iphoneos/OmoFun.app output/Payload/
+          cd output
+          zip -qry OmoFun-unsigned.ipa Payload
+          ls -lh OmoFun-unsigned.ipa
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: OmoFun-unsigned-ipa
+          path: output/OmoFun-unsigned.ipa
+          if-no-files-found: error
+name: Build unsigned IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+
+jobs:
+  build:
     runs-on: macos-15
     steps:
       - name: Checkout
